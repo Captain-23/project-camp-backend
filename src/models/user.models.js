@@ -3,7 +3,7 @@ import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import crypto from "crypto"
 
-const schema = new Schema(
+const userSchema = new Schema(
     {
         avatar: {
             type:{
@@ -41,7 +41,7 @@ const schema = new Schema(
         },
         isEmailVerified:{
             type: Boolean,
-            deafult: false
+            default: false
         },
         refreshToken:{
             type: String
