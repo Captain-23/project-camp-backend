@@ -294,7 +294,7 @@ const refreshAccessToken = asyncHandler(async(req, res) => {
     }
 })
 
-const forgotPassword = asyncHandler(async(req, res) => {
+const forgotPasswordRequest = asyncHandler(async(req, res) => {
     const {email} = req.body
 
     const user = await User.findOne({email})
@@ -403,7 +403,7 @@ export {
     verifyEmail,
     resendEmailVerification,
     refreshAccessToken,
-    forgotPassword,
+    forgotPasswordRequest,
     resetForgotPassword,
     changeCurrentPassword
 
