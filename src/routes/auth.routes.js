@@ -16,7 +16,7 @@ router.route("/verify-email/:verificationToken").get(verifyEmail);
 
 router.route("/refresh-token").post(refreshAccessToken);
 
-router.route("/forgot-password").post( userForgotPasswordValidator(), validate, forgotPasswordRequest);
+router.route("/forgot-password").post(validate, forgotPasswordRequest);
 
 
 router.route("/")

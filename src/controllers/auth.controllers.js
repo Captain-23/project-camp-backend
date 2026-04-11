@@ -5,6 +5,7 @@ import {User} from "../models/user.models.js"
 import { emailVerificationMailgenContent, forgotPasswordMailgenContent, sendEmail } from "../utils/mail.js"
 import jwt from "jsonwebtoken"
 
+
 const generateAccessAndRefreshTokens = async(userId) =>{
     try {
         const user = await User.findById(userId)
@@ -22,7 +23,6 @@ const generateAccessAndRefreshTokens = async(userId) =>{
         
     }
 }
-
 const registerUser = asyncHandler(async (req, res) => {
     const {email, username, password, role} = req.body
 
