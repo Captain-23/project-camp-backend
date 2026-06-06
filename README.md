@@ -1,316 +1,317 @@
-# Project Camp Backend — Product Requirements Document
+# 🏕️ Project Camp Backend
 
-> **Version:** 2.0 &nbsp;|&nbsp; **Status:** In Review &nbsp;|&nbsp; **Date:** April 30, 2026 &nbsp;|&nbsp; **Type:** Backend API
+> A RESTful API service powering a collaborative project management platform — built for teams who need structured workflows, fine-grained access control, and async collaboration tools.
+
+![Version](https://img.shields.io/badge/version-2.0-blue)
+![Status](https://img.shields.io/badge/status-in%20review-yellow)
+![API](https://img.shields.io/badge/type-REST%20API-green)
 
 ---
 
 ## Table of Contents
 
-1. [Executive Summary](#1-executive-summary)
-2. [Goals & Success Criteria](#2-goals--success-criteria)
-3. [Target Users & Roles](#3-target-users--roles)
-4. [Core Features](#4-core-features)
-5. [API Reference](#5-api-reference)
-6. [Data Models](#6-data-models)
-7. [Permission Matrix](#7-permission-matrix)
-8. [Security Requirements](#8-security-requirements)
-9. [Non-Functional Requirements](#9-non-functional-requirements)
-10. [Error Handling & Response Standards](#10-error-handling--response-standards)
-11. [File Management](#11-file-management)
-12. [Revision History](#12-revision-history)
+- [Overview](#overview)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [API Reference](#api-reference)
+- [Data Models](#data-models)
+- [Permission Matrix](#permission-matrix)
+- [Error Handling](#error-handling)
+- [File Uploads](#file-uploads)
+- [Non-Functional Requirements](#non-functional-requirements)
 
 ---
 
-## 1. Executive Summary
+## Overview
 
-**Project Camp Backend** is a RESTful API service that powers a collaborative project management platform. It provides the complete server-side foundation for teams to organise projects, manage hierarchical tasks and subtasks, share notes, and enforce access boundaries through a three-tier role-based permission system.
+**Project Camp Backend** provides the complete server-side foundation for teams to:
 
-> **Vision:** Deliver a secure, scalable, and developer-friendly backend API that enables teams of any size to collaborate on projects with fine-grained control over who can see and do what.
+- Organise work into **Projects** with member-based access
+- Break down work into **Tasks** and **Subtasks** with assignees and statuses
+- Share **Notes** for documentation, decisions, and meeting summaries
+- Attach **Files** directly to tasks
+- Enforce access boundaries through a **three-tier role-based permission system**
 
-> **Scope:** Backend API only. Authentication, authorisation, data persistence, file handling, and email delivery are all **in scope**. Frontend clients, mobile apps, and third-party integrations are **out of scope**.
+> **Scope:** Backend API only. Frontend clients, mobile apps, and third-party integrations are out of scope.
 
 ---
 
-## 2. Goals & Success Criteria
+## Features
 
-### 2.1 Business Goals
+### 🔐 Authentication & Authorization
+- JWT-based stateless auth (access + refresh token pair)
+- Refresh token rotation — single-use, 7-day lifetime
+- Email verification on registration
+- Forgot/reset password via time-limited email link
+- Bcrypt password hashing (salt rounds ≥ 12)
 
-- Provide a production-ready API that development teams can onboard and integrate within hours
-- Reduce coordination overhead by enforcing clear responsibility boundaries through role permissions
-- Enable async collaboration through shared notes, file attachments, and subtask delegation
+### 📁 Project Management
+- Create and manage projects with name and description
+- Role-based membership — Admin, Project Admin, Member
+- Add members by email; remove members without deleting their created tasks
 
-### 2.2 Success Metrics
+### ✅ Task Management
+- Tasks with title, description, assignee, and status (`todo` / `in_progress` / `done`)
+- Filter tasks by status and assignee
+- Attach multiple files per task (up to 10 MB each)
 
-| Metric | Target |
+### 🔩 Subtask Management
+- Break tasks into subtasks with individual completion tracking
+- All roles can toggle subtask completion — enabling distributed ownership
+
+### 📝 Project Notes
+- Shared, persistent notes for documentation and reference
+- Markdown-friendly content field
+- Admin-controlled write access; all members can read
+
+### ❤️ Health Check
+- Unauthenticated endpoint for load balancer and uptime monitoring
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
 |---|---|
-| API response time (p95) | < 200ms for non-file endpoints |
-| Authentication security | JWT access tokens + refresh token rotation |
-| Test coverage | ≥ 80% unit + integration coverage |
-| Uptime | 99.5% monthly availability |
-| Email delivery | Verification and reset emails sent within 30 seconds |
-| File upload | Support attachments up to 10MB per file |
+| Runtime | Node.js |
+| API Style | RESTful, versioned (`/api/v1`) |
+| Authentication | JWT (HS256 / RS256) |
+| Password Hashing | bcrypt |
+| Input Validation | Zod / Joi |
+| File Uploads | Multer |
+| Database | MongoDB (with ObjectId references) |
+| Email Delivery | Nodemailer or equivalent |
+| Storage | Local (`public/images/`) or Cloud bucket |
 
 ---
 
-## 3. Target Users & Roles
+## Getting Started
 
-| Role | Responsibilities | Typical User |
-|---|---|---|
-| **Admin** | Full system access: creates and deletes projects, manages members and roles, administers all content | Team lead, project owner, engineering manager |
-| **Project Admin** | Manages tasks and subtasks within assigned projects; cannot modify project settings or membership | Tech lead, senior developer, QA lead |
-| **Member** | Views project content, updates subtask completion status, accesses shared notes and files | Developer, designer, stakeholder |
+### Prerequisites
 
----
+- Node.js ≥ 18.x
+- MongoDB instance (local or Atlas)
+- SMTP credentials for email delivery
 
-## 4. Core Features
+### Installation
 
-### 4.1 User Authentication & Authorization
+```bash
+# Clone the repository
+git clone https://github.com/your-username/project-camp-backend.git
+cd project-camp-backend
 
-All authentication follows a stateless JWT pattern. Access tokens are short-lived; refresh tokens allow session extension without re-authentication. All sensitive operations require email verification before activation.
+# Install dependencies
+npm install
 
-- **User Registration** — Collect email, name, and hashed password; send verification email on signup
-- **Email Verification** — One-time token link confirms account ownership before access is granted
-- **Login / Logout** — Issues signed access + refresh token pair on login; logout invalidates the refresh token
-- **Token Refresh** — Exchange a valid refresh token for a new access token without re-login
-- **Change Password** — Authenticated users may update their own password at any time
-- **Forgot / Reset Password** — Sends a time-limited reset link via email; token is invalidated on use
-- **Resend Verification** — Re-issues a verification email if the previous link has expired
-- **Current User** — Returns the authenticated user's profile data derived from the token
+# Set up environment variables
+cp .env.example .env
+# Fill in the required values (see Environment Variables below)
 
-> **Security note:** Password reset and email verification tokens must be single-use, expire within 24 hours, and be stored as hashes — never plaintext.
+# Start the development server
+npm run dev
+```
 
----
+### Health Check
 
-### 4.2 Project Management
+Once the server is running, confirm it's live:
 
-Projects are the top-level container for all work. Each project has exactly one Admin (its creator) and can have any number of Project Admins and Members.
+```bash
+curl http://localhost:PORT/api/v1/healthcheck/
+```
 
-- **Create Project** — Name and description required; creator is automatically assigned the Admin role
-- **List Projects** — Returns all projects the authenticated user belongs to, including member count
-- **Project Details** — Returns project metadata alongside the current user's role within the project
-- **Update Project** — Admin-only; modify project name and description
-- **Delete Project** — Admin-only; cascades deletion of all tasks, subtasks, notes, and file metadata
+Expected response:
 
----
-
-### 4.3 Team Member Management
-
-Members are invited by email. If the email matches an existing account they are added directly; unrecognised emails return an appropriate error rather than auto-creating accounts.
-
-- **Add Member** — Admin adds user by email; default role is Member
-- **List Members** — Any project member can view the full member list with roles
-- **Update Role** — Admin-only; change a member's role between Project Admin and Member
-- **Remove Member** — Admin-only; member loses all access; their previously created tasks are retained
+```json
+{
+  "success": true,
+  "message": "Service is healthy",
+  "data": {
+    "status": "ok",
+    "version": "2.0.0",
+    "uptime": 42.3
+  }
+}
+```
 
 ---
 
-### 4.4 Task Management
+## Environment Variables
 
-Tasks are the primary unit of work within a project. Each task can be assigned to one team member, carry multiple file attachments, and contain any number of subtasks.
+Create a `.env` file at the project root. **Never commit secrets to source control.**
 
-- **Create Task** — Title required; description, assignee, and status are optional (status defaults to `todo`)
-- **List Tasks** — All project members; supports filtering by status and assignee
-- **Task Details** — Full task info including subtask list and file attachment metadata
-- **Update Task** — Admin/Project Admin; modify title, description, assignee, and status
-- **Delete Task** — Admin/Project Admin; cascades deletion of all subtasks and file metadata
-- **File Attachments** — Multiple files per task; stores URL, MIME type, and file size
+```env
+# Server
+PORT=8000
+NODE_ENV=development
 
-#### Task Status Lifecycle
+# Database
+MONGODB_URI=mongodb://localhost:27017/project-camp
 
-| Status | Value | Meaning |
-|---|---|---|
-| To Do | `todo` | Task has been created but work has not started |
-| In Progress | `in_progress` | Task is actively being worked on |
-| Done | `done` | Task is complete; all subtasks should be resolved |
+# JWT
+ACCESS_TOKEN_SECRET=your_access_token_secret
+REFRESH_TOKEN_SECRET=your_refresh_token_secret
+ACCESS_TOKEN_EXPIRY=15m
+REFRESH_TOKEN_EXPIRY=7d
 
----
+# Email
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=your_email@example.com
+SMTP_PASS=your_email_password
+EMAIL_FROM=no-reply@projectcamp.dev
 
-### 4.5 Subtask Management
+# CORS
+ALLOWED_ORIGINS=https://yourfrontend.com
 
-Subtasks provide fine-grained decomposition of tasks. Any team member can mark a subtask complete, enabling distributed ownership within a single task.
-
-- **Create Subtask** — Admin/Project Admin; attached to a parent task with title and optional description
-- **Update Subtask** — All roles can toggle completion status; Admin/Project Admin can also edit title and description
-- **Delete Subtask** — Admin/Project Admin only
-
----
-
-### 4.6 Project Notes
-
-Notes provide a shared, persistent space for project-level documentation, meeting summaries, decision logs, and reference material. Only Admins can manage notes; all members can read them.
-
-- **Create Note** — Admin only; title and body content required
-- **List Notes** — All project members; returns list with titles and creation metadata
-- **Note Details** — Full note content including last-modified timestamp
-- **Update Note** — Admin only; updates body and refreshes last-modified timestamp
-- **Delete Note** — Admin only
+# File Storage
+STORAGE_TYPE=local           # or "cloud"
+CLOUD_BUCKET_NAME=           # if using cloud storage
+```
 
 ---
 
-### 4.7 Health Check
-
-- **`GET /api/v1/healthcheck/`** — Unauthenticated endpoint; returns `200 OK` with service status, version, and uptime for load balancer and monitoring integration
-
----
-
-## 5. API Reference
+## API Reference
 
 **Base URL:** `/api/v1`  
-**Auth header:** `Authorization: Bearer <access_token>`
+**Auth Header:** `Authorization: Bearer <access_token>`
 
 ---
 
-### 5.1 Authentication — `/api/v1/auth/`
+### Authentication — `/api/v1/auth/`
 
-| Method | Path | Auth | Description |
+| Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | `POST` | `/auth/register` | Public | Register a new user account |
-| `GET` | `/auth/verify-email/:token` | Public | Verify email address via token link |
-| `POST` | `/auth/login` | Public | Authenticate and receive access + refresh token pair |
-| `POST` | `/auth/logout` | Bearer token | Invalidate the current refresh token |
-| `GET` | `/auth/current-user` | Bearer token | Get the authenticated user's profile |
+| `GET` | `/auth/verify-email/:token` | Public | Verify email via token link |
+| `POST` | `/auth/login` | Public | Authenticate and receive token pair |
+| `POST` | `/auth/logout` | Bearer | Invalidate the current refresh token |
+| `GET` | `/auth/current-user` | Bearer | Get the authenticated user's profile |
 | `POST` | `/auth/refresh-token` | Refresh token | Issue a new access token |
-| `POST` | `/auth/change-password` | Bearer token | Update the authenticated user's password |
+| `POST` | `/auth/change-password` | Bearer | Update the authenticated user's password |
 | `POST` | `/auth/forgot-password` | Public | Request a password reset email |
 | `POST` | `/auth/reset-password/:token` | Public | Reset password using the emailed token |
-| `POST` | `/auth/resend-email-verification` | Bearer token | Resend the email verification link |
+| `POST` | `/auth/resend-email-verification` | Bearer | Resend the email verification link |
 
 ---
 
-### 5.2 Projects — `/api/v1/projects/`
+### Projects — `/api/v1/projects/`
 
-| Method | Path | Auth | Description |
+| Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `GET` | `/projects/` | Bearer token | List all projects for the current user |
-| `POST` | `/projects/` | Bearer token | Create a new project |
-| `GET` | `/projects/:projectId` | Bearer + role check | Get project details |
-| `PUT` | `/projects/:projectId` | Admin only | Update project name / description |
-| `DELETE` | `/projects/:projectId` | Admin only | Delete project and all its data |
-| `GET` | `/projects/:projectId/members` | Bearer + role check | List project members and their roles |
-| `POST` | `/projects/:projectId/members` | Admin only | Add a member by email |
-| `PUT` | `/projects/:projectId/members/:userId` | Admin only | Change a member's role |
-| `DELETE` | `/projects/:projectId/members/:userId` | Admin only | Remove a member from the project |
+| `GET` | `/projects/` | Bearer | List all projects for the current user |
+| `POST` | `/projects/` | Bearer | Create a new project |
+| `GET` | `/projects/:projectId` | Bearer + role | Get project details |
+| `PUT` | `/projects/:projectId` | Admin | Update project name / description |
+| `DELETE` | `/projects/:projectId` | Admin | Delete project and all its data |
+| `GET` | `/projects/:projectId/members` | Bearer + role | List project members and their roles |
+| `POST` | `/projects/:projectId/members` | Admin | Add a member by email |
+| `PUT` | `/projects/:projectId/members/:userId` | Admin | Change a member's role |
+| `DELETE` | `/projects/:projectId/members/:userId` | Admin | Remove a member from the project |
 
 ---
 
-### 5.3 Tasks — `/api/v1/tasks/`
+### Tasks — `/api/v1/tasks/`
 
-| Method | Path | Auth | Description |
+| Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `GET` | `/tasks/:projectId` | Bearer + role check | List all tasks in the project |
+| `GET` | `/tasks/:projectId` | Bearer + role | List all tasks in the project |
 | `POST` | `/tasks/:projectId` | Admin / Project Admin | Create a new task |
-| `GET` | `/tasks/:projectId/t/:taskId` | Bearer + role check | Get full task details |
+| `GET` | `/tasks/:projectId/t/:taskId` | Bearer + role | Get full task details |
 | `PUT` | `/tasks/:projectId/t/:taskId` | Admin / Project Admin | Update task fields |
 | `DELETE` | `/tasks/:projectId/t/:taskId` | Admin / Project Admin | Delete task and its subtasks |
-| `POST` | `/tasks/:projectId/t/:taskId/subtasks` | Admin / Project Admin | Add a subtask to a task |
-| `PUT` | `/tasks/:projectId/st/:subTaskId` | Bearer + role check | Update a subtask |
+| `POST` | `/tasks/:projectId/t/:taskId/subtasks` | Admin / Project Admin | Add a subtask |
+| `PUT` | `/tasks/:projectId/st/:subTaskId` | Bearer + role | Update a subtask |
 | `DELETE` | `/tasks/:projectId/st/:subTaskId` | Admin / Project Admin | Delete a subtask |
 
 ---
 
-### 5.4 Notes — `/api/v1/notes/`
+### Notes — `/api/v1/notes/`
 
-| Method | Path | Auth | Description |
+| Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `GET` | `/notes/:projectId` | Bearer + role check | List all notes in the project |
-| `POST` | `/notes/:projectId` | Admin only | Create a new note |
-| `GET` | `/notes/:projectId/n/:noteId` | Bearer + role check | Get note details |
-| `PUT` | `/notes/:projectId/n/:noteId` | Admin only | Update note content |
-| `DELETE` | `/notes/:projectId/n/:noteId` | Admin only | Delete a note |
+| `GET` | `/notes/:projectId` | Bearer + role | List all notes in the project |
+| `POST` | `/notes/:projectId` | Admin | Create a new note |
+| `GET` | `/notes/:projectId/n/:noteId` | Bearer + role | Get note details |
+| `PUT` | `/notes/:projectId/n/:noteId` | Admin | Update note content |
+| `DELETE` | `/notes/:projectId/n/:noteId` | Admin | Delete a note |
 
 ---
 
-### 5.5 Health Check — `/api/v1/healthcheck/`
+### Health Check — `/api/v1/healthcheck/`
 
-| Method | Path | Auth | Description |
+| Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | `GET` | `/healthcheck/` | Public | Returns service status and uptime |
 
 ---
 
-## 6. Data Models
+## Data Models
 
-### 6.1 User
-
-| Field | Type | Required | Description |
+### User
+| Field | Type | Required | Notes |
 |---|---|---|---|
-| `_id` | `ObjectId` | Yes | Unique identifier |
-| `name` | `String` | Yes | Display name |
-| `email` | `String` | Yes | Unique email address, stored lowercased |
-| `password` | `String` | Yes | Bcrypt-hashed; never returned in API responses |
-| `isEmailVerified` | `Boolean` | Yes | True after email verification; defaults `false` |
-| `emailVerificationToken` | `String` | No | Hashed one-time token for email confirmation |
-| `passwordResetToken` | `String` | No | Hashed one-time token for password reset |
-| `passwordResetExpiry` | `Date` | No | Expiry timestamp for the reset token |
-| `createdAt` | `Date` | Yes | Auto-generated on creation |
-| `updatedAt` | `Date` | Yes | Auto-updated on modification |
+| `_id` | ObjectId | ✅ | Auto-generated |
+| `name` | String | ✅ | Display name |
+| `email` | String | ✅ | Unique, stored lowercased |
+| `password` | String | ✅ | Bcrypt-hashed; never returned in responses |
+| `isEmailVerified` | Boolean | ✅ | Defaults `false` |
+| `emailVerificationToken` | String | ❌ | Hashed one-time token |
+| `passwordResetToken` | String | ❌ | Hashed one-time token |
+| `passwordResetExpiry` | Date | ❌ | Expiry for reset token |
+| `createdAt` / `updatedAt` | Date | ✅ | Auto-managed |
+
+### Project
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `_id` | ObjectId | ✅ | Auto-generated |
+| `name` | String | ✅ | Project display name |
+| `description` | String | ❌ | Optional |
+| `createdBy` | ObjectId (User) | ✅ | Creator is assigned Admin role |
+| `members` | Array | ✅ | `[{ user: ObjectId, role: Enum }]` |
+| `createdAt` / `updatedAt` | Date | ✅ | Auto-managed |
+
+### Task
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `_id` | ObjectId | ✅ | Auto-generated |
+| `project` | ObjectId (Project) | ✅ | Parent project |
+| `title` | String | ✅ | Task title |
+| `description` | String | ❌ | Optional |
+| `assignedTo` | ObjectId (User) | ❌ | Project member |
+| `status` | Enum | ✅ | `todo` \| `in_progress` \| `done` |
+| `subtasks` | ObjectId[] | ❌ | References to SubTask documents |
+| `attachments` | Array | ❌ | `[{ url, mimeType, size }]` |
+| `createdBy` | ObjectId (User) | ✅ | Creating user |
+| `createdAt` / `updatedAt` | Date | ✅ | Auto-managed |
+
+### SubTask
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `_id` | ObjectId | ✅ | Auto-generated |
+| `task` | ObjectId (Task) | ✅ | Parent task |
+| `title` | String | ✅ | Subtask title |
+| `description` | String | ❌ | Optional |
+| `isCompleted` | Boolean | ✅ | Defaults `false` |
+| `createdBy` | ObjectId (User) | ✅ | Creating user |
+| `createdAt` / `updatedAt` | Date | ✅ | Auto-managed |
+
+### Note
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `_id` | ObjectId | ✅ | Auto-generated |
+| `project` | ObjectId (Project) | ✅ | Parent project |
+| `title` | String | ✅ | Note heading |
+| `content` | String | ✅ | Markdown recommended |
+| `createdBy` | ObjectId (User) | ✅ | Creating Admin |
+| `createdAt` / `updatedAt` | Date | ✅ | Auto-managed |
 
 ---
 
-### 6.2 Project
+## Permission Matrix
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `_id` | `ObjectId` | Yes | Unique identifier |
-| `name` | `String` | Yes | Project display name |
-| `description` | `String` | No | Optional project description |
-| `createdBy` | `ObjectId (User)` | Yes | Reference to the creating user (Admin) |
-| `members` | `Array` | Yes | List of `{ user: ObjectId, role: Enum }` objects |
-| `createdAt` | `Date` | Yes | Auto-generated on creation |
-| `updatedAt` | `Date` | Yes | Auto-updated on modification |
-
----
-
-### 6.3 Task
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `_id` | `ObjectId` | Yes | Unique identifier |
-| `project` | `ObjectId (Project)` | Yes | Parent project reference |
-| `title` | `String` | Yes | Task title |
-| `description` | `String` | No | Optional task description |
-| `assignedTo` | `ObjectId (User)` | No | Project member assigned to this task |
-| `status` | `Enum` | Yes | One of: `todo`, `in_progress`, `done` |
-| `subtasks` | `ObjectId[]` | No | References to child SubTask documents |
-| `attachments` | `Array` | No | List of `{ url, mimeType, size }` objects |
-| `createdBy` | `ObjectId (User)` | Yes | Reference to the creating user |
-| `createdAt` | `Date` | Yes | Auto-generated on creation |
-| `updatedAt` | `Date` | Yes | Auto-updated on modification |
-
----
-
-### 6.4 SubTask
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `_id` | `ObjectId` | Yes | Unique identifier |
-| `task` | `ObjectId (Task)` | Yes | Parent task reference |
-| `title` | `String` | Yes | Subtask title |
-| `description` | `String` | No | Optional subtask details |
-| `isCompleted` | `Boolean` | Yes | Completion status; defaults `false` |
-| `createdBy` | `ObjectId (User)` | Yes | Reference to the creating user |
-| `createdAt` | `Date` | Yes | Auto-generated on creation |
-| `updatedAt` | `Date` | Yes | Auto-updated on modification |
-
----
-
-### 6.5 Note
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `_id` | `ObjectId` | Yes | Unique identifier |
-| `project` | `ObjectId (Project)` | Yes | Parent project reference |
-| `title` | `String` | Yes | Note heading |
-| `content` | `String` | Yes | Note body; Markdown recommended |
-| `createdBy` | `ObjectId (User)` | Yes | Reference to the creating Admin |
-| `createdAt` | `Date` | Yes | Auto-generated on creation |
-| `updatedAt` | `Date` | Yes | Auto-updated on modification |
-
----
-
-## 7. Permission Matrix
-
-| Feature / Action | Admin | Project Admin | Member |
+| Action | Admin | Project Admin | Member |
 |---|:---:|:---:|:---:|
 | Create Project | ✅ | ❌ | ❌ |
 | Update / Delete Project | ✅ | ❌ | ❌ |
@@ -326,73 +327,20 @@ Notes provide a shared, persistent space for project-level documentation, meetin
 
 ---
 
-## 8. Security Requirements
+## Error Handling
 
-### 8.1 Authentication
+All responses — success or error — follow a consistent envelope:
 
-- **JWT access tokens** — Short-lived (15 minutes recommended), signed with HS256 or RS256
-- **Refresh tokens** — Longer-lived (7 days), stored hashed, single-use rotation on each refresh
-- **Passwords** — Minimum 8 characters, hashed with bcrypt (salt rounds ≥ 12)
-- **Email tokens** — Cryptographically random (≥ 32 bytes), hashed before storage, single-use
-
-### 8.2 Transport & Input
-
-- All traffic over HTTPS / TLS 1.2+ in production
-- Input validation and sanitisation on every endpoint using a schema validation library (e.g. Zod, Joi)
-- File upload validation — restrict MIME types, enforce size limits, sanitise filenames
-- Rate limiting applied to all authentication endpoints to mitigate brute-force attacks
-
-### 8.3 Authorisation
-
-- Project membership verified on every project-scoped request before any role check
-- Role verified before any write, update, or delete operation
-- Users cannot escalate their own role; only the project Admin may change roles
-- CORS configured to allowlist trusted origins only; wildcard `*` disallowed in production
-
----
-
-## 9. Non-Functional Requirements
-
-### 9.1 Performance
-
-- List endpoints paginated (default 20 items/page, configurable up to 100)
-- Database indexes required on: `user.email`, `projectMember.userId`, `task.projectId`, `task.status`
-- File uploads streamed directly to storage; avoid loading binary data into application memory
-
-### 9.2 Reliability
-
-- All errors return a structured JSON response with `success`, `message`, and (dev-only) `stack`
-- Database connection pooling with automatic reconnect on failure
-- Health check endpoint must be usable by load balancers without authentication
-
-### 9.3 Maintainability
-
-- Versioned API namespace (`/api/v1/`) to support future breaking-change versions without disruption
-- Centralised middleware for authentication, role checking, error handling, and request logging
-- All configuration via environment variables; no secrets committed to source control
-
-### 9.4 Developer Experience
-
-- Consistent response envelope across all endpoints (see [Section 10](#10-error-handling--response-standards))
-- Meaningful HTTP status codes for every error case
-- All endpoints include request/response schema documentation
-
----
-
-## 10. Error Handling & Response Standards
-
-### 10.1 Standard Response Envelope
-
-All responses — success or error — follow this shape:
-
+**Success**
 ```json
 {
   "success": true,
   "message": "Projects fetched successfully",
-  "data": { }
+  "data": {}
 }
 ```
 
+**Error**
 ```json
 {
   "success": false,
@@ -403,51 +351,67 @@ All responses — success or error — follow this shape:
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `success` | `Boolean` | `true` for 2xx responses, `false` for errors |
-| `message` | `String` | Human-readable outcome description |
-| `data` | `Object / Array` | Response payload; omitted on errors |
-| `errors` | `Array` | Field-level validation errors; present only on `422` responses |
+### HTTP Status Codes
 
-### 10.2 HTTP Status Code Reference
-
-| Code | Status | When to use |
-|---|---|---|
-| `200` | OK | Successful `GET` or `PUT` |
-| `201` | Created | Successful `POST` that creates a resource |
-| `400` | Bad Request | Malformed request body or query parameters |
-| `401` | Unauthorized | Missing or invalid/expired token |
-| `403` | Forbidden | Valid token but insufficient role for the operation |
-| `404` | Not Found | Resource does not exist or user lacks access to it |
-| `409` | Conflict | Duplicate resource (e.g. email already registered) |
-| `422` | Unprocessable Entity | Validation errors with per-field details |
-| `500` | Internal Server Error | Unexpected server-side failure |
+| Code | When |
+|---|---|
+| `200 OK` | Successful `GET` or `PUT` |
+| `201 Created` | Successful `POST` that creates a resource |
+| `400 Bad Request` | Malformed request body or query parameters |
+| `401 Unauthorized` | Missing or invalid/expired token |
+| `403 Forbidden` | Valid token but insufficient role |
+| `404 Not Found` | Resource does not exist or user lacks access |
+| `409 Conflict` | Duplicate resource (e.g. email already registered) |
+| `422 Unprocessable Entity` | Validation errors with per-field details |
+| `500 Internal Server Error` | Unexpected server-side failure |
 
 ---
 
-## 11. File Management
-
-### 11.1 Upload Constraints
+## File Uploads
 
 | Constraint | Value |
 |---|---|
-| Maximum file size | 10 MB per file |
+| Max file size | 10 MB per file |
 | Accepted MIME types | `image/*`, `application/pdf`, `text/plain`, `application/msword`, `application/vnd.openxmlformats-officedocument.*` |
-| Filename handling | Sanitised to remove path traversal characters before storage |
-| Upload middleware | Multer; validation runs before controller logic |
+| Upload middleware | Multer — validation runs before controller logic |
+| Filename handling | Sanitised to remove path traversal characters |
+| Storage (dev) | `public/images/` |
+| Storage (prod) | Cloud bucket |
 
-### 11.2 Storage & Metadata
-
-- Files stored under `public/images/` (local) or a cloud bucket (production)
-- Original filename, MIME type, and byte size persisted inside the parent task document
-- File access URL returned in all task detail responses
+File metadata (URL, MIME type, byte size) is stored inside the parent task document and returned in all task detail responses.
 
 ---
 
-## 12. Revision History
+## Non-Functional Requirements
+
+### Performance
+- p95 response time < 200ms for non-file endpoints
+- List endpoints paginated — default 20 items/page, configurable up to 100
+- Database indexes on: `user.email`, `projectMember.userId`, `task.projectId`, `task.status`
+- File uploads streamed directly to storage; binary data never loaded into app memory
+
+### Reliability
+- 99.5% monthly uptime target
+- Database connection pooling with automatic reconnect
+- All errors return structured JSON (with stack trace in dev only)
+
+### Security
+- All traffic over HTTPS / TLS 1.2+ in production
+- CORS allowlist — wildcard `*` disallowed in production
+- Rate limiting on all auth endpoints
+- Password reset and email verification tokens: single-use, expire within 24 hours, stored as hashes
+
+### Developer Experience
+- Versioned API namespace (`/api/v1/`) for non-breaking future changes
+- Centralised middleware for auth, role checking, error handling, and logging
+- All config via environment variables — no secrets in source control
+- Test coverage target: ≥ 80% unit + integration
+
+---
+
+## Revision History
 
 | Version | Date | Changes |
 |---|---|---|
-| 1.0 | April 2026 | Initial PRD draft |
-| 2.0 | April 30, 2026 | Added goals, success metrics, data models, permission matrix expansion, security section, NFRs, error standards, file management constraints |
+| 1.0 | April 2026 | Initial release |
+| 2.0 | April 30, 2026 | Added goals, success metrics, data models, permission matrix, security section, NFRs, error standards, file management |
